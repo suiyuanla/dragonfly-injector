@@ -47,6 +47,7 @@ func (pei *ProxyEnvInjector) Inject(pod *corev1.Pod) {
 func (pei *ProxyEnvInjector) InjectContainer(c *corev1.Container) {
 	for _, e := range pei.Envs {
 		exsit := false
+		// if env exsit, skip
 		for _, ce := range c.Env {
 			if e.Name == ce.Name {
 				exsit = true
