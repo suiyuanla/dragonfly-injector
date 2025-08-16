@@ -66,6 +66,7 @@ func NewPodCustomDefaulter(c client.Client) *PodCustomDefaulter {
 		injectors: []Injector{
 			injector.NewProxyEnvInjector(),
 			injector.NewUnixSocketInjector(),
+			injector.NewToolsInitcontainerInjector(),
 		},
 	}
 }
