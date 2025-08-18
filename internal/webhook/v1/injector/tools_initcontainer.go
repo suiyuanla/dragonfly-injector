@@ -1,26 +1,48 @@
 package injector
 
 import (
-	"strings"
-
 	corev1 "k8s.io/api/core/v1"
 )
 
 type ToolsInitcontainerInjector struct {
-	initContainerName            string
+	// dragonfly tools initcontainer name
+	initContainerName string
+
+	// dragonfly tools initcontainer image annotation
 	initContainerImageAnnotation string
-	defaultInitContainerImage    string
-	toolsVolumeName              string
-	toolsVolumeMountPath         string
+
+	// dragonfly tools binary dir
+	initContainerToolsDir string
+
+	// dragonfly tools initcontainer volume mount path
+	// initContainerVolumeMountPath string
+
+	// dragonfly tools initcontainer command
+	initContainerCommand      []string
+	defaultInitContainerImage string
+	toolsVolumeName           string
+	toolsVolumeMountPath      string
+	dragonflyToolsPathEnvName string
 }
 
 func NewToolsInitcontainerInjector() *ToolsInitcontainerInjector {
+	initContainerToolsDir := "/dragonfly-tools"
+	initContainerVolumeMountPath := "/dragonfly-tools-mount"
 	return &ToolsInitcontainerInjector{
 		initContainerName:            "dragonfly-tools",
 		initContainerImageAnnotation: "dragonfly.io/cli-tools-image",
-		defaultInitContainerImage:    "dragonflyoss/cli-tools:v0.0.1",
-		toolsVolumeName:              "dragonfly-tools-volume",
-		toolsVolumeMountPath:         "/dragonfly-tools",
+		defaultInitContainerImage:    "dragonflyoss/cli-tools:latest",
+		initContainerToolsDir:        initContainerToolsDir,
+		// initContainerVolumeMountPath: initContainerVolumeMountPath,
+		initContainerCommand: []string{
+			"cp",
+			"-rf",
+			initContainerToolsDir + "/.",
+			initContainerVolumeMountPath + "/",
+		},
+		toolsVolumeName:           "dragonfly-tools-volume",
+		toolsVolumeMountPath:      initContainerVolumeMountPath,
+		dragonflyToolsPathEnvName: "DRAGONFLY_TOOLS_PATH",
 	}
 }
 
@@ -39,14 +61,16 @@ func (tii *ToolsInitcontainerInjector) Inject(pod *corev1.Pod) {
 	// add initContainer
 	if !tii.CheckInitContainerIsExist(pod) {
 		toolContainer := &corev1.Container{
-			Name:  tii.initContainerName,
-			Image: initContainerImage,
+			Name:            tii.initContainerName,
+			Image:           initContainerImage,
+			ImagePullPolicy: corev1.PullIfNotPresent,
 			VolumeMounts: []corev1.VolumeMount{
 				{
 					Name:      tii.toolsVolumeName,
 					MountPath: tii.toolsVolumeMountPath,
 				},
 			},
+			Command: tii.initContainerCommand,
 		}
 		pod.Spec.InitContainers = append(pod.Spec.InitContainers, *toolContainer)
 	}
@@ -61,7 +85,7 @@ func (tii *ToolsInitcontainerInjector) Inject(pod *corev1.Pod) {
 		pod.Spec.Volumes = append(pod.Spec.Volumes, *toolsVolume)
 	}
 
-	// add volumeMount and env PATH
+	// add volumeMount and env
 	for i := range pod.Spec.Containers {
 		if !tii.CheckVolumeMountIsExist(pod) {
 			pod.Spec.Containers[i].VolumeMounts = append(pod.Spec.Containers[i].VolumeMounts, corev1.VolumeMount{
@@ -69,10 +93,10 @@ func (tii *ToolsInitcontainerInjector) Inject(pod *corev1.Pod) {
 				MountPath: tii.toolsVolumeMountPath,
 			})
 		}
-		if !tii.CheckEnvIsInPATH(&pod.Spec.Containers[i]) {
+		if !tii.CheckEnvIsExist(&pod.Spec.Containers[i]) {
 			pod.Spec.Containers[i].Env = append(pod.Spec.Containers[i].Env, corev1.EnvVar{
-				Name:  "PATH",
-				Value: tii.toolsVolumeMountPath + ":$PATH",
+				Name:  tii.dragonflyToolsPathEnvName,
+				Value: tii.toolsVolumeMountPath,
 			})
 		}
 	}
@@ -112,17 +136,11 @@ func (tii *ToolsInitcontainerInjector) CheckVolumeMountIsExist(pod *corev1.Pod) 
 }
 
 // check volumeMountPath is in env PATH
-func (tii *ToolsInitcontainerInjector) CheckEnvIsInPATH(c *corev1.Container) bool {
+func (tii *ToolsInitcontainerInjector) CheckEnvIsExist(c *corev1.Container) bool {
 	env := c.Env
 	for i := range env {
-		if env[i].Name == "PATH" {
-			// split PATH by :
-			paths := strings.Split(env[i].Value, ":")
-			for _, path := range paths {
-				if path == tii.toolsVolumeMountPath {
-					return true
-				}
-			}
+		if env[i].Name == tii.dragonflyToolsPathEnvName {
+			return true
 		}
 	}
 	return false
