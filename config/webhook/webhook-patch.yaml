@@ -7,7 +7,6 @@
         values:
           [
             "kube-system",
-            "kube-node-lease",
             "kube-public",
             "cert-manager",
             "dragonfly-system",
