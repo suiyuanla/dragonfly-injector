@@ -1,14 +1,16 @@
-package v1
+package injector
 
 import (
 	"os"
+	"path/filepath"
+	"sync"
 
-	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
 const (
-	// ConfigMap Path
-	InjectConfigMapPath string = "/etc/dragonfly-p2p-webhook/config"
+	// ConfigMap Path, should config in config/default/manager_webhook_patch.yaml
+	InjectConfigMapPath string = "/etc/dragonfly-p2p-webhook"
 
 	// Namespace labels for injection control
 	NamespaceInjectLabelName  string = "dragonflyoss-injection"
@@ -36,10 +38,6 @@ const (
 	CliToolsDirPath           string = "/dragonfly-tools" // Cli tools binary directory path
 )
 
-type Injector interface {
-	Inject(pod *corev1.Pod)
-}
-
 type InjectConf struct {
 	Enable    bool `json:"enable"`     // Whether to enable dragonfly injection
 	ProxyPort int  `json:"proxy_port"` // Proxy port of dragonfly proxy(dfdaemon proxy port)
@@ -58,17 +56,51 @@ func NewDefaultInjectConf() *InjectConf {
 	}
 }
 
+type ConfigManager struct {
+	mu         sync.RWMutex
+	config     *InjectConf
+	configPath string
+}
+
+// TODO: Add config Manager
+func NewConfigManager() *ConfigManager {
+	configPath := filepath.Join(InjectConfigMapPath, "config.yaml")
+	return &ConfigManager{
+		mu:         sync.RWMutex{},
+		config:     LoadInjectConf(configPath),
+		configPath: configPath,
+	}
+}
+
+func (cm *ConfigManager) GetConfig() *InjectConf {
+	cm.mu.RLock()
+	defer cm.mu.RUnlock()
+	return cm.config
+}
+
+func (cm *ConfigManager) Watch() {
+	return
+}
+
+func LoadInjectConf(injectConfigMapPath string) *InjectConf {
+	ic, err := LoadInjectConfFromFile(injectConfigMapPath)
+	if err != nil {
+		podlog.Error(err, "load config from file failed")
+		podlog.Info("use default config")
+		ic = NewDefaultInjectConf()
+	}
+	return ic
+}
+
 // load inject config from file
-func LoadInjectConf() (*InjectConf, error) {
-	dirs, err := os.ReadDir(InjectConfigMapPath)
+func LoadInjectConfFromFile(injectConfigMapPath string) (*InjectConf, error) {
+	cfp := filepath.Join(injectConfigMapPath, "config.yaml")
+	cf, err := os.ReadFile(cfp)
+	if err != nil {
+		return nil, err
+	}
 	injectConf := &InjectConf{}
-	if err != nil {
-		podlog.Info(err.Error())
-	}
-	for _, dir := range dirs {
-		podlog.Info(string(dir.Name()))
-	}
-	if err != nil {
+	if err := yaml.Unmarshal(cf, injectConf); err != nil {
 		return nil, err
 	}
 

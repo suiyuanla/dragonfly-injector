@@ -40,6 +40,10 @@ func SetupPodWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
+type Injector interface {
+	Inject(pod *corev1.Pod)
+}
+
 // +kubebuilder:webhook:path=/mutate--v1-pod,mutating=true,failurePolicy=fail,sideEffects=None,groups="",resources=pods,verbs=create;update,versions=v1,name=mpod-v1.d7y.io,admissionReviewVersions=v1
 
 // PodCustomDefaulter struct is responsible for setting default values on the custom resource of the
@@ -50,9 +54,12 @@ func SetupPodWebhookWithManager(mgr ctrl.Manager) error {
 type PodCustomDefaulter struct {
 	injectPodAnnotation  string
 	injectNamespaceLabel string
+	configManager        *injector.ConfigManager
 	kubeClient           client.Client
 	injectors            []Injector
 }
+
+var _ webhook.CustomDefaulter = &PodCustomDefaulter{}
 
 func NewPodCustomDefaulter(c client.Client) *PodCustomDefaulter {
 	return &PodCustomDefaulter{
@@ -67,8 +74,6 @@ func NewPodCustomDefaulter(c client.Client) *PodCustomDefaulter {
 	}
 }
 
-var _ webhook.CustomDefaulter = &PodCustomDefaulter{}
-
 // Default implements webhook.CustomDefaulter so a webhook will be registered for the Kind Pod.
 func (d *PodCustomDefaulter) Default(ctx context.Context, obj runtime.Object) error {
 	pod, ok := obj.(*corev1.Pod)
@@ -78,8 +83,6 @@ func (d *PodCustomDefaulter) Default(ctx context.Context, obj runtime.Object) er
 	}
 	podlog.Info("Defaulting for Pod", "name", pod.GetName())
 
-	// TODO: load config from file(configmap)
-	LoadInjectConf()
 	d.applyDefaults(ctx, pod)
 	return nil
 }
