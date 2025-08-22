@@ -7,8 +7,7 @@
         values:
           [
             "kube-system",
-            "kube-public",
             "cert-manager",
             "dragonfly-system",
-            "dragonfly-p2p-webhook-system",
+            "dragonfly-p2p-webhook-system", # TODO: this namespace is webhook self
           ]
