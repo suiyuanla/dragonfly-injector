@@ -218,6 +218,7 @@ var _ = Describe("Manager", Ordered, func() {
 						"containers": [{
 							"name": "curl",
 							"image": "curlimages/curl:latest",
+							"imagePullPolicy": "IfNotPresent",
 							"command": ["/bin/sh", "-c"],
 							"args": ["curl -v -k -H 'Authorization: Bearer %s' https://%s.%s.svc.cluster.local:8443/metrics"],
 							"securityContext": {
@@ -253,7 +254,7 @@ var _ = Describe("Manager", Ordered, func() {
 			By("getting the metrics by checking curl-metrics logs")
 			metricsOutput := getMetricsOutput()
 			Expect(metricsOutput).To(ContainSubstring(
-				"controller_runtime_reconcile_total",
+				"controller_runtime_webhook_requests_total",
 			))
 		})
 
