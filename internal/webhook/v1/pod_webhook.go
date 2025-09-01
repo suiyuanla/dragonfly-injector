@@ -114,8 +114,7 @@ func (d *PodCustomDefaulter) isNamespaceInjectionEnabled(ctx context.Context, po
 	nsName := pod.GetNamespace()
 	ns := &corev1.Namespace{}
 	if err := d.kubeClient.Get(ctx, client.ObjectKey{Name: nsName}, ns); err != nil {
-		err := fmt.Errorf("failed to get namespace: %v", err)
-		podlog.Error(err, "name", nsName, "err", err)
+		podlog.Error(err, "failed to get namespace", "namespace", nsName)
 		return false
 	}
 
