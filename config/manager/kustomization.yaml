@@ -5,4 +5,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: d7y.io/dragonfly-injector
-  newTag: v0.0.1
+  newTag: latest
