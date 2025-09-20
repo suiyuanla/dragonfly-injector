@@ -1,0 +1,360 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: dragonfly-injector
+    control-plane: controller-manager
+  name: dragonfly-injector-system
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: dragonfly-injector
+  name: dragonfly-injector-controller-manager
+  namespace: dragonfly-injector-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: dragonfly-injector
+  name: dragonfly-injector-leader-election-role
+  namespace: dragonfly-injector-system
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: dragonfly-injector-manager-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: dragonfly-injector-metrics-auth-role
+rules:
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: dragonfly-injector-metrics-reader
+rules:
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: dragonfly-injector
+  name: dragonfly-injector-leader-election-rolebinding
+  namespace: dragonfly-injector-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: dragonfly-injector-leader-election-role
+subjects:
+- kind: ServiceAccount
+  name: dragonfly-injector-controller-manager
+  namespace: dragonfly-injector-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: dragonfly-injector
+  name: dragonfly-injector-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: dragonfly-injector-manager-role
+subjects:
+- kind: ServiceAccount
+  name: dragonfly-injector-controller-manager
+  namespace: dragonfly-injector-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: dragonfly-injector-metrics-auth-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: dragonfly-injector-metrics-auth-role
+subjects:
+- kind: ServiceAccount
+  name: dragonfly-injector-controller-manager
+  namespace: dragonfly-injector-system
+---
+apiVersion: v1
+data:
+  config.yaml: |
+    enable: true       # Whether to enable injection
+    proxy_port: 4001   # The proxy port of Dragonfly Dfdaemon
+    cli_tools_image: dragonflyoss/toolkits:latest # The image used for injection
+    cli_tools_dir_path: /dragonfly-tools          # The tools directory path in the image
+kind: ConfigMap
+metadata:
+  name: dragonfly-injector-inject-config
+  namespace: dragonfly-injector-system
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: dragonfly-injector
+    control-plane: controller-manager
+  name: dragonfly-injector-controller-manager-metrics-service
+  namespace: dragonfly-injector-system
+spec:
+  ports:
+  - name: https
+    port: 8443
+    protocol: TCP
+    targetPort: 8443
+  selector:
+    app.kubernetes.io/name: dragonfly-injector
+    control-plane: controller-manager
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: dragonfly-injector
+  name: dragonfly-injector-webhook-service
+  namespace: dragonfly-injector-system
+spec:
+  ports:
+  - port: 443
+    protocol: TCP
+    targetPort: 9443
+  selector:
+    app.kubernetes.io/name: dragonfly-injector
+    control-plane: controller-manager
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: dragonfly-injector
+    control-plane: controller-manager
+  name: dragonfly-injector-controller-manager
+  namespace: dragonfly-injector-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: dragonfly-injector
+      control-plane: controller-manager
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+      labels:
+        app.kubernetes.io/name: dragonfly-injector
+        control-plane: controller-manager
+    spec:
+      containers:
+      - args:
+        - --metrics-bind-address=:8443
+        - --leader-elect
+        - --health-probe-bind-address=:8081
+        - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
+        command:
+        - /manager
+        image: d7y.io/dragonfly-injector:latest
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        name: manager
+        ports:
+        - containerPort: 9443
+          name: webhook-server
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+        volumeMounts:
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: webhook-certs
+          readOnly: true
+        - mountPath: /etc/dragonfly-injector
+          name: dragonfly-injector-config-volume
+          readOnly: true
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: dragonfly-injector-controller-manager
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - name: webhook-certs
+        secret:
+          secretName: webhook-server-cert
+      - configMap:
+          name: dragonfly-injector-inject-config
+        name: dragonfly-injector-config-volume
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: dragonfly-injector
+  name: dragonfly-injector-metrics-certs
+  namespace: dragonfly-injector-system
+spec:
+  dnsNames:
+  - dragonfly-injector-controller-manager-metrics-service.dragonfly-injector-system.svc
+  - dragonfly-injector-controller-manager-metrics-service.dragonfly-injector-system.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: dragonfly-injector-selfsigned-issuer
+  secretName: metrics-server-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: dragonfly-injector
+  name: dragonfly-injector-serving-cert
+  namespace: dragonfly-injector-system
+spec:
+  dnsNames:
+  - dragonfly-injector-webhook-service.dragonfly-injector-system.svc
+  - dragonfly-injector-webhook-service.dragonfly-injector-system.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: dragonfly-injector-selfsigned-issuer
+  secretName: webhook-server-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: dragonfly-injector
+  name: dragonfly-injector-selfsigned-issuer
+  namespace: dragonfly-injector-system
+spec:
+  selfSigned: {}
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: dragonfly-injector-system/dragonfly-injector-serving-cert
+  name: dragonfly-injector-mutating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: dragonfly-injector-webhook-service
+      namespace: dragonfly-injector-system
+      path: /mutate--v1-pod
+  failurePolicy: Fail
+  name: mpod-v1.d7y.io
+  namespaceSelector:
+    matchExpressions:
+    - key: kubernetes.io/metadata.name
+      operator: NotIn
+      values:
+      - kube-system
+      - cert-manager
+      - dragonfly-system
+      - dragonfly-injector-system
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - pods
+  sideEffects: None
