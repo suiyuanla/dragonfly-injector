@@ -315,7 +315,7 @@ var _ = Describe("Manager", Ordered, func() {
 			injectLable := injector.NamespaceInjectLabelName + "=" + injector.NamespaceInjectLabelValue
 			cmd = exec.Command("kubectl", "label", "--overwrite", "ns", testNamespace,
 				injectLable,
-				"pod-security.kubernetes.io/enforce=restricted")
+				"pod-security.kubernetes.io/enforce=baseline")
 			_, err = utils.Run(cmd)
 			Expect(err).NotTo(HaveOccurred(), "Failed to label namespace")
 
@@ -375,6 +375,12 @@ var _ = Describe("Manager", Ordered, func() {
 			cmd := exec.Command("kubectl", "create", "ns", testNamespace)
 			_, err := utils.Run(cmd)
 			Expect(err).NotTo(HaveOccurred(), "Failed to create test namespace")
+
+			By("labeling the namespace to enable injection")
+			cmd = exec.Command("kubectl", "label", "--overwrite", "ns", testNamespace,
+				"pod-security.kubernetes.io/enforce=baseline")
+			_, err = utils.Run(cmd)
+			Expect(err).NotTo(HaveOccurred(), "Failed to label namespace")
 
 			pod := &corev1.Pod{
 				TypeMeta: metav1.TypeMeta{
@@ -471,6 +477,12 @@ var _ = Describe("Manager", Ordered, func() {
 			cmd = exec.Command("kubectl", "create", "ns", testNamespace)
 			_, err = utils.Run(cmd)
 			Expect(err).NotTo(HaveOccurred(), "Failed to create test namespace")
+
+			By("labeling the namespace to enable injection")
+			cmd = exec.Command("kubectl", "label", "--overwrite", "ns", testNamespace,
+				"pod-security.kubernetes.io/enforce=baseline")
+			_, err = utils.Run(cmd)
+			Expect(err).NotTo(HaveOccurred(), "Failed to label namespace")
 
 			pod := &corev1.Pod{
 				TypeMeta: metav1.TypeMeta{
