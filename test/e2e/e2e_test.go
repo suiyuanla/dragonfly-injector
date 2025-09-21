@@ -358,10 +358,10 @@ var _ = Describe("Manager", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred(), "Failed to create test pod")
 
 			By("waiting for the pod to be running")
-			Eventually(verifyPodIsRunning(testNamespace, testPodName)).Should(Succeed())
+			Eventually(verifyPodIsRunning(testPodName, testNamespace)).Should(Succeed())
 
 			By("verifying P2P configurations are injected")
-			Eventually(verifyInjection(testNamespace, testPodName)).Should(Succeed())
+			Eventually(verifyInjection(testPodName, testNamespace)).Should(Succeed())
 
 		})
 
@@ -415,10 +415,10 @@ var _ = Describe("Manager", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred(), "Failed to create test pod")
 
 			By("waiting for the pod to be running")
-			Eventually(verifyPodIsRunning(testNamespace, testPodName)).Should(Succeed())
+			Eventually(verifyPodIsRunning(testPodName, testNamespace)).Should(Succeed())
 
 			By("verifying P2P configurations are injected")
-			Eventually(verifyInjection(testNamespace, testPodName)).Should(Succeed())
+			Eventually(verifyInjection(testPodName, testNamespace)).Should(Succeed())
 		})
 
 	})
