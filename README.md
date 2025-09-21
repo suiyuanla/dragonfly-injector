@@ -5,7 +5,7 @@ A Kubernetes Mutating Admission Webhook for automatic P2P capability injection i
 ## Description
 
 1. **Annotation(label)-based Injection Scope**:
-   The webhook supports injecting P2P configurations based on annotations(labels) at both the namespace and pod levels. By adding a specific label to a namespace, all pods within that namespace will have the P2P capabilities automatically injected. Additionally, pods can be annotated to enable or customize the injection. The priority of annotations is as follows: `pod-level annotations` > `namespace-level labels` > `webhook default config`.
+   The webhook supports injecting P2P configurations based on annotations(labels) at both the namespace and pod levels. By adding a specific label to a namespace, all pods within that namespace will have the P2P capabilities automatically injected. Additionally, pods can be annotated to enable or customize the injection. The priority of annotations is as follows: `pod-level annotations` > `namespace-level labels`.
 
    - Namespace injection:
 

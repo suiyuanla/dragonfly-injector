@@ -26,7 +26,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"d7y.io/dragonfly-injector/internal/webhook/v1/injector"
 	"d7y.io/dragonfly-injector/test/utils"
 )
 
@@ -41,6 +44,9 @@ const metricsServiceName = "dragonfly-injector-controller-manager-metrics-servic
 
 // metricsRoleBindingName is the name of the RBAC that will be created to allow get the metrics data
 const metricsRoleBindingName = "dragonfly-injector-metrics-binding"
+
+const testNamespaceInjection = "test-namespace-injection"
+const testPodName = "test-pod"
 
 var _ = Describe("Manager", Ordered, func() {
 	var controllerPodName string
@@ -293,7 +299,159 @@ var _ = Describe("Manager", Ordered, func() {
 		//    strings.ToLower(<Kind>),
 		// ))
 	})
+
+	Context("BasicInjectionTests", func() {
+
+		AfterEach(func() {
+			By("final clean up...")
+			finalCleanUp(testPodName, testNamespaceInjection)
+		})
+
+		It("should inject when namespace has dragonfly.io/inject=true label", func() {
+			By("creating a test namespace with injection label")
+			testNamespace := testNamespaceInjection
+
+			cmd := exec.Command("kubectl", "create", "ns", testNamespace)
+			_, err := utils.Run(cmd)
+			Expect(err).NotTo(HaveOccurred(), "Failed to create test namespace")
+
+			By("labeling the namespace to enable injection")
+			injectLable := injector.NamespaceInjectLabelName + "=" + injector.NamespaceInjectLabelValue
+			cmd = exec.Command("kubectl", "label", "--overwrite", "ns", testNamespace,
+				injectLable,
+				"pod-security.kubernetes.io/enforce=privileged")
+			_, err = utils.Run(cmd)
+			Expect(err).NotTo(HaveOccurred(), "Failed to label namespace")
+
+			By("creating a simple pod in the labeled namespace")
+			pod := &corev1.Pod{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "v1",
+					Kind:       "Pod",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testPodName,
+					Namespace: testNamespace,
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "test-container",
+							Image: "busybox:latest",
+							Command: []string{
+								"sleep",
+								"infinity",
+							},
+						},
+					},
+				},
+			}
+			podJsonBytes, err := json.Marshal(pod)
+			Expect(err).NotTo(HaveOccurred(), "Failed to marshal pod to json")
+			tempDir := GinkgoT().TempDir()
+			podFile := filepath.Join(tempDir, testPodName+".json")
+			err = os.WriteFile(podFile, podJsonBytes, 0644)
+			Expect(err).NotTo(HaveOccurred(), "Failed to write pod json to file")
+
+			cmd = exec.Command("kubectl", "apply", "-f", podFile)
+			_, err = utils.Run(cmd)
+			Expect(err).NotTo(HaveOccurred(), "Failed to create test pod")
+
+			By("waiting for the pod to be running")
+			Eventually(verifyPodIsRunning(testPodName, testNamespace)).Should(Succeed())
+
+			By("verifying P2P configurations are injected")
+			Eventually(verifyInjection(testPodName, testNamespace)).Should(Succeed())
+
+		})
+
+		It("should inject when pod has dragonfly.io/inject=true annotation", func() {
+			By("creating a test pod with injection annotation")
+			testNamespace := testNamespaceInjection
+			cmd := exec.Command("kubectl", "create", "ns", testNamespace)
+			_, err := utils.Run(cmd)
+			Expect(err).NotTo(HaveOccurred(), "Failed to create test namespace")
+
+			By("labeling the namespace to enable injection")
+			cmd = exec.Command("kubectl", "label", "--overwrite", "ns", testNamespace,
+				"pod-security.kubernetes.io/enforce=privileged")
+			_, err = utils.Run(cmd)
+			Expect(err).NotTo(HaveOccurred(), "Failed to label namespace")
+
+			pod := &corev1.Pod{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "v1",
+					Kind:       "Pod",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testPodName,
+					Namespace: testNamespace,
+					Annotations: map[string]string{
+						injector.PodInjectAnnotationName: injector.PodInjectAnnotationValue,
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "test-container",
+							Image: "busybox:latest",
+							Command: []string{
+								"sleep",
+								"infinity",
+							},
+						},
+					},
+				},
+			}
+			podJsonBytes, err := json.Marshal(pod)
+			Expect(err).NotTo(HaveOccurred(), "Failed to marshal pod to json")
+			tempDir := GinkgoT().TempDir()
+			podFile := filepath.Join(tempDir, testPodName+".json")
+			err = os.WriteFile(podFile, podJsonBytes, 0644)
+			Expect(err).NotTo(HaveOccurred(), "Failed to write pod json to file")
+
+			cmd = exec.Command("kubectl", "apply", "-f", podFile)
+			_, err = utils.Run(cmd)
+			Expect(err).NotTo(HaveOccurred(), "Failed to create test pod")
+
+			By("waiting for the pod to be running")
+			Eventually(verifyPodIsRunning(testPodName, testNamespace)).Should(Succeed())
+
+			By("verifying P2P configurations are injected")
+			Eventually(verifyInjection(testPodName, testNamespace)).Should(Succeed())
+		})
+
+	})
 })
+
+func finalCleanUp(podName, ns string) {
+	By("collecting logs")
+	cmd := exec.Command("kubectl", "logs", podName, "-n", ns)
+	logs, err := utils.Run(cmd)
+
+	if err == nil {
+		_, _ = fmt.Fprintf(GinkgoWriter, "%s logs: %s", podName, logs)
+	} else {
+		_, _ = fmt.Fprintf(GinkgoWriter, "Failed to get %s logs: %v", podName, err)
+	}
+	cmd = exec.Command("kubectl", "describe", "pod", podName, "-n", ns)
+	describeOutput, err := utils.Run(cmd)
+	if err == nil {
+		_, _ = fmt.Fprintf(GinkgoWriter, "%s describe: %s", podName, describeOutput)
+	} else {
+		_, _ = fmt.Fprintf(GinkgoWriter, "Failed to describe %s: %v", podName, err)
+	}
+
+	By("cleaning up test resources")
+	cmd = exec.Command("kubectl", "delete", "pod", podName, "-n", ns)
+	_, err = utils.Run(cmd)
+	Expect(err).NotTo(HaveOccurred(), "Failed to delete %s", podName)
+
+	cmd = exec.Command("kubectl", "delete", "ns", ns)
+	_, err = utils.Run(cmd)
+	Expect(err).NotTo(HaveOccurred(), "Failed to delete %s", ns)
+
+}
 
 // serviceAccountToken returns a token for the specified service account in the given namespace.
 // It uses the Kubernetes TokenRequest API to generate a token by directly sending a request
@@ -352,4 +510,40 @@ type tokenRequest struct {
 	Status struct {
 		Token string `json:"token"`
 	} `json:"status"`
+}
+
+func verifyPodIsRunning(podName, namespace string) func(g Gomega) {
+	return func(g Gomega) {
+		cmd := exec.Command("kubectl", "get", "pod", podName,
+			"-n", namespace, "-o", "jsonpath={.status.phase}")
+		output, err := utils.Run(cmd)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(output).To(Equal("Running"), "Pod should be running")
+	}
+}
+
+func verifyInjection(podName, namespace string) func(g Gomega) {
+	return func(g Gomega) {
+		// Check for environment variables
+		cmd := exec.Command("kubectl", "exec", podName, "-n", namespace,
+			"--", "env")
+		output, err := utils.Run(cmd)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(output).To(ContainSubstring(injector.ProxyEnvName),
+			"Should have dragonfly proxy env var")
+		g.Expect(output).To(ContainSubstring(injector.CliToolsPathEnvName),
+			"Should have dragonfly tools path env var")
+
+		// Check for volume mounts and init container
+		cmd = exec.Command("kubectl", "get", "pod", podName, "-n", namespace,
+			"-o", "json")
+		podJson, err := utils.Run(cmd)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(podJson).To(ContainSubstring(injector.DfdaemonUnixSockVolumeName),
+			"Should have dfdaemon socket volume")
+		g.Expect(podJson).To(ContainSubstring(injector.CliToolsVolumeName),
+			"Should have cli tools volume")
+		g.Expect(podJson).To(ContainSubstring(injector.CliToolsInitContainerName),
+			"Should have cli tools init container")
+	}
 }
