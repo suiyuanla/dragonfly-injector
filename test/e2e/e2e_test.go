@@ -46,6 +46,7 @@ const metricsServiceName = "dragonfly-injector-controller-manager-metrics-servic
 const metricsRoleBindingName = "dragonfly-injector-metrics-binding"
 
 const testNamespaceInjection = "test-namespace-injection"
+const testPodName = "test-pod"
 
 var _ = Describe("Manager", Ordered, func() {
 	var controllerPodName string
@@ -300,14 +301,15 @@ var _ = Describe("Manager", Ordered, func() {
 	})
 
 	Context("BasicInjectionTests", func() {
+
+		AfterEach(func() {
+			By("final clean up...")
+			finalCleanUp(testPodName, testNamespaceInjection)
+		})
+
 		It("should inject when namespace has dragonfly.io/inject=true label", func() {
 			By("creating a test namespace with injection label")
 			testNamespace := testNamespaceInjection
-
-			DeferCleanup(func() {
-				By("final clean up...")
-				finalCleanUp(testNamespace)
-			})
 
 			cmd := exec.Command("kubectl", "create", "ns", testNamespace)
 			_, err := utils.Run(cmd)
@@ -328,7 +330,7 @@ var _ = Describe("Manager", Ordered, func() {
 					Kind:       "Pod",
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-pod",
+					Name:      testPodName,
 					Namespace: testNamespace,
 				},
 				Spec: corev1.PodSpec{
@@ -347,7 +349,7 @@ var _ = Describe("Manager", Ordered, func() {
 			podJsonBytes, err := json.Marshal(pod)
 			Expect(err).NotTo(HaveOccurred(), "Failed to marshal pod to json")
 			tempDir := GinkgoT().TempDir()
-			podFile := filepath.Join(tempDir, "test-pod.json")
+			podFile := filepath.Join(tempDir, testPodName+".json")
 			err = os.WriteFile(podFile, podJsonBytes, 0644)
 			Expect(err).NotTo(HaveOccurred(), "Failed to write pod json to file")
 
@@ -356,20 +358,16 @@ var _ = Describe("Manager", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred(), "Failed to create test pod")
 
 			By("waiting for the pod to be running")
-			Eventually(verifyPodIsRunning(testNamespace, "test-pod")).Should(Succeed())
+			Eventually(verifyPodIsRunning(testNamespace, testPodName)).Should(Succeed())
 
 			By("verifying P2P configurations are injected")
-			Eventually(verifyInjection(testNamespace, "test-pod")).Should(Succeed())
+			Eventually(verifyInjection(testNamespace, testPodName)).Should(Succeed())
 
 		})
 
 		It("should inject when pod has dragonfly.io/inject=true annotation", func() {
 			By("creating a test pod with injection annotation")
 			testNamespace := testNamespaceInjection
-			DeferCleanup(func() {
-				By("final clean up...")
-				finalCleanUp(testNamespace)
-			})
 			cmd := exec.Command("kubectl", "create", "ns", testNamespace)
 			_, err := utils.Run(cmd)
 			Expect(err).NotTo(HaveOccurred(), "Failed to create test namespace")
@@ -386,7 +384,7 @@ var _ = Describe("Manager", Ordered, func() {
 					Kind:       "Pod",
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-pod",
+					Name:      testPodName,
 					Namespace: testNamespace,
 					Annotations: map[string]string{
 						injector.PodInjectAnnotationName: injector.PodInjectAnnotationValue,
@@ -408,7 +406,7 @@ var _ = Describe("Manager", Ordered, func() {
 			podJsonBytes, err := json.Marshal(pod)
 			Expect(err).NotTo(HaveOccurred(), "Failed to marshal pod to json")
 			tempDir := GinkgoT().TempDir()
-			podFile := filepath.Join(tempDir, "test-pod.json")
+			podFile := filepath.Join(tempDir, testPodName+".json")
 			err = os.WriteFile(podFile, podJsonBytes, 0644)
 			Expect(err).NotTo(HaveOccurred(), "Failed to write pod json to file")
 
@@ -417,41 +415,41 @@ var _ = Describe("Manager", Ordered, func() {
 			Expect(err).NotTo(HaveOccurred(), "Failed to create test pod")
 
 			By("waiting for the pod to be running")
-			Eventually(verifyPodIsRunning(testNamespace, "test-pod")).Should(Succeed())
+			Eventually(verifyPodIsRunning(testNamespace, testPodName)).Should(Succeed())
 
 			By("verifying P2P configurations are injected")
-			Eventually(verifyInjection(testNamespace, "test-pod")).Should(Succeed())
+			Eventually(verifyInjection(testNamespace, testPodName)).Should(Succeed())
 		})
 
 	})
 })
 
-func finalCleanUp(ns string) {
+func finalCleanUp(podName, ns string) {
 	By("collecting logs")
-	cmd := exec.Command("kubectl", "logs", "test-pod", "-n", ns)
+	cmd := exec.Command("kubectl", "logs", podName, "-n", ns)
 	logs, err := utils.Run(cmd)
 
 	if err == nil {
-		_, _ = fmt.Fprintf(GinkgoWriter, "test-pod logs: %s", logs)
+		_, _ = fmt.Fprintf(GinkgoWriter, "%s logs: %s", podName, logs)
 	} else {
-		_, _ = fmt.Fprintf(GinkgoWriter, "Failed to get test-pod logs: %v", err)
+		_, _ = fmt.Fprintf(GinkgoWriter, "Failed to get %s logs: %v", podName, err)
 	}
-	cmd = exec.Command("kubectl", "describe", "test-pod", "-n", ns)
+	cmd = exec.Command("kubectl", "describe", podName, "-n", ns)
 	describeOutput, err := utils.Run(cmd)
 	if err == nil {
-		_, _ = fmt.Fprintf(GinkgoWriter, "test-pod describe: %s", describeOutput)
+		_, _ = fmt.Fprintf(GinkgoWriter, "%s describe: %s", podName, describeOutput)
 	} else {
-		_, _ = fmt.Fprintf(GinkgoWriter, "Failed to describe test pod: %v", err)
+		_, _ = fmt.Fprintf(GinkgoWriter, "Failed to describe %s: %v", podName, err)
 	}
 
 	By("cleaning up test resources")
-	cmd = exec.Command("kubectl", "delete", "pod", "test-pod", "-n", ns)
+	cmd = exec.Command("kubectl", "delete", "pod", podName, "-n", ns)
 	_, err = utils.Run(cmd)
-	Expect(err).NotTo(HaveOccurred(), "Failed to delete test pod")
+	Expect(err).NotTo(HaveOccurred(), "Failed to delete %s", podName)
 
 	cmd = exec.Command("kubectl", "delete", "ns", ns)
 	_, err = utils.Run(cmd)
-	Expect(err).NotTo(HaveOccurred(), "Failed to delete test namespace")
+	Expect(err).NotTo(HaveOccurred(), "Failed to delete %s", ns)
 
 }
 
