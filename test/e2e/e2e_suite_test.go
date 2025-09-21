@@ -39,6 +39,7 @@ var (
 	isDragonflyAlreadyInstalled   = false
 	// projectImage is the name of the image which will be build and loaded
 	// with the code source changes to be tested.
+	// TODO: update the image version
 	projectImage        = "d7y.io/dragonfly-injector:v1.0.0"
 	dragonflyToolsImage = "dragonflyoss/toolkits:v0.0.1"
 )
