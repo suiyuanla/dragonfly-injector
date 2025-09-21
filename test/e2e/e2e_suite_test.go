@@ -39,7 +39,8 @@ var (
 	isDragonflyAlreadyInstalled   = false
 	// projectImage is the name of the image which will be build and loaded
 	// with the code source changes to be tested.
-	projectImage = "d7y.io/dragonfly-injector:v1.0.0"
+	projectImage        = "d7y.io/dragonfly-injector:v1.0.0"
+	dragonflyToolsImage = "dragonflyoss/toolkits:v0.0.1"
 )
 
 // TestE2E runs the end-to-end (e2e) test suite for the project. These tests execute in an isolated,
@@ -87,6 +88,15 @@ var _ = BeforeSuite(func() {
 	} else {
 		_, _ = fmt.Fprintf(GinkgoWriter, "WARNING: Dragonfly is already installed. Skipping installation...\n")
 	}
+
+	By("building the test image")
+	cmd = exec.Command("docker", "build", "-t", dragonflyToolsImage, "test/e2e/config")
+	_, err = utils.Run(cmd)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to build the test image")
+
+	By("loading the test image on Kind")
+	err = utils.LoadImageToKindClusterWithName(dragonflyToolsImage)
+	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to load the test image into Kind")
 })
 
 var _ = AfterSuite(func() {

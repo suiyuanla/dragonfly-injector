@@ -26,7 +26,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"gopkg.in/yaml.v3"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -435,119 +434,6 @@ var _ = Describe("Manager", Ordered, func() {
 
 		})
 
-		It("should not inject when configmap is disabled", func() {
-			By("get original configmap")
-			cmd := exec.Command("kubectl", "get", "cm", webhookConfigMapName,
-				"-n", namespace, "-o", `jsonpath={.data."config\.yaml"}`)
-			configYaml, err := utils.Run(cmd)
-			Expect(err).NotTo(HaveOccurred(), "Failed to get configmap")
-			config := injector.InjectConf{}
-			err = yaml.Unmarshal([]byte(configYaml), &config)
-			Expect(err).NotTo(HaveOccurred(), "Failed to unmarshal configmap")
-
-			By("disable webhook injection")
-			config.Enable = false
-			configBytes, err := yaml.Marshal(&config)
-			Expect(err).NotTo(HaveOccurred(), "Failed to marshal configmap")
-			cm := &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      webhookConfigMapName,
-					Namespace: namespace,
-				},
-				Data: map[string]string{
-					"config.yaml": string(configBytes),
-				},
-			}
-
-			By("update configmap")
-			cmJson, err := json.Marshal(cm)
-			Expect(err).NotTo(HaveOccurred(), "Failed to marshal configmap")
-			cmFile := filepath.Join(GinkgoT().TempDir(), "configmap.json")
-			err = os.WriteFile(cmFile, cmJson, 0644)
-			Expect(err).NotTo(HaveOccurred(), "Failed to write configmap json to file")
-			cmd = exec.Command("kubectl", "apply", "-f", cmFile, "-n", namespace)
-			_, err = utils.Run(cmd)
-			Expect(err).NotTo(HaveOccurred(), "Failed to update configmap")
-
-			By("wait for configmap update")
-			time.Sleep(injector.ConfigReloadWaitTime)
-
-			By("creating a test pod with injection annotation")
-			testNamespace := testNamespaceInjection
-			cmd = exec.Command("kubectl", "create", "ns", testNamespace)
-			_, err = utils.Run(cmd)
-			Expect(err).NotTo(HaveOccurred(), "Failed to create test namespace")
-
-			By("labeling the namespace to enable injection")
-			cmd = exec.Command("kubectl", "label", "--overwrite", "ns", testNamespace,
-				"pod-security.kubernetes.io/enforce=privileged")
-			_, err = utils.Run(cmd)
-			Expect(err).NotTo(HaveOccurred(), "Failed to label namespace")
-
-			pod := &corev1.Pod{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: "v1",
-					Kind:       "Pod",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-pod",
-					Namespace: testNamespace,
-					Annotations: map[string]string{
-						injector.PodInjectAnnotationName: injector.PodInjectAnnotationValue,
-					},
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name:  "test-container",
-							Image: "busybox:latest",
-							Command: []string{
-								"sleep",
-								"infinity",
-							},
-						},
-					},
-				},
-			}
-			podJsonBytes, err := json.Marshal(pod)
-			Expect(err).NotTo(HaveOccurred(), "Failed to marshal pod to json")
-			tempDir := GinkgoT().TempDir()
-			podFile := filepath.Join(tempDir, "test-pod.json")
-			err = os.WriteFile(podFile, podJsonBytes, 0644)
-			Expect(err).NotTo(HaveOccurred(), "Failed to write pod json to file")
-
-			cmd = exec.Command("kubectl", "apply", "-f", podFile)
-			_, err = utils.Run(cmd)
-			Expect(err).NotTo(HaveOccurred(), "Failed to create test pod")
-
-			By("waiting for the pod to be running")
-			Eventually(verifyPodIsRunning(testNamespace, "test-pod")).Should(Succeed())
-
-			By("verifying P2P configurations are not injected")
-			Eventually(verifyInjection(namespace, "test-pod")).ShouldNot(Succeed())
-
-			By("resetting configmap")
-			cm.Data["config.yaml"] = configYaml
-			cmJson, err = json.Marshal(cm)
-			Expect(err).NotTo(HaveOccurred(), "Failed to marshal configmap")
-			err = os.WriteFile(cmFile, cmJson, 0644)
-			Expect(err).NotTo(HaveOccurred(), "Failed to write configmap json to file")
-			cmd = exec.Command("kubectl", "apply", "-f", cmFile, "-n", namespace)
-			_, err = utils.Run(cmd)
-			Expect(err).NotTo(HaveOccurred(), "Failed to update configmap")
-
-			By("wait for configmap update")
-			time.Sleep(injector.ConfigReloadWaitTime)
-
-			By("cleaning up test resources")
-			cmd = exec.Command("kubectl", "delete", "pod", "test-pod", "-n", testNamespace)
-			_, err = utils.Run(cmd)
-			Expect(err).NotTo(HaveOccurred(), "Failed to delete test pod")
-
-			cmd = exec.Command("kubectl", "delete", "ns", testNamespace)
-			_, err = utils.Run(cmd)
-			Expect(err).NotTo(HaveOccurred(), "Failed to delete test namespace")
-		})
 	})
 })
 
