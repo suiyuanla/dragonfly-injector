@@ -49,6 +49,8 @@ const metricsRoleBindingName = "dragonfly-injector-metrics-binding"
 // webhook config-map name
 const webhookConfigMapName = "dragonfly-injector-inject-config"
 
+const testNamespaceInjection = "test-namespace-injection"
+
 var _ = Describe("Manager", Ordered, func() {
 	var controllerPodName string
 
@@ -304,7 +306,7 @@ var _ = Describe("Manager", Ordered, func() {
 	Context("BasicInjectionTests", func() {
 		It("should inject when namespace has dragonfly.io/inject=true label", func() {
 			By("creating a test namespace with injection label")
-			testNamespace := "test-namespace-injection"
+			testNamespace := testNamespaceInjection
 			cmd := exec.Command("kubectl", "create", "ns", testNamespace)
 			_, err := utils.Run(cmd)
 			Expect(err).NotTo(HaveOccurred(), "Failed to create test namespace")
@@ -369,7 +371,7 @@ var _ = Describe("Manager", Ordered, func() {
 
 		It("should inject when pod has dragonfly.io/inject=true annotation", func() {
 			By("creating a test pod with injection annotation")
-			testNamespace := "test-namespace-injection"
+			testNamespace := testNamespaceInjection
 			cmd := exec.Command("kubectl", "create", "ns", testNamespace)
 			_, err := utils.Run(cmd)
 			Expect(err).NotTo(HaveOccurred(), "Failed to create test namespace")
@@ -427,9 +429,10 @@ var _ = Describe("Manager", Ordered, func() {
 
 		})
 
-		It("should not inject when configmap is disbale", func() {
+		It("should not inject when configmap is disabled", func() {
 			By("get original configmap")
-			cmd := exec.Command("kubectl", "get", "cm", webhookConfigMapName, "-n", namespace, "-o", `jsonpath={.data."config\.yaml"}`)
+			cmd := exec.Command("kubectl", "get", "cm", webhookConfigMapName,
+				"-n", namespace, "-o", `jsonpath={.data."config\.yaml"}`)
 			configYaml, err := utils.Run(cmd)
 			Expect(err).NotTo(HaveOccurred(), "Failed to get configmap")
 			config := injector.InjectConf{}
@@ -464,7 +467,7 @@ var _ = Describe("Manager", Ordered, func() {
 			time.Sleep(injector.ConfigReloadWaitTime)
 
 			By("creating a test pod with injection annotation")
-			testNamespace := "test-namespace-injection"
+			testNamespace := testNamespaceInjection
 			cmd = exec.Command("kubectl", "create", "ns", testNamespace)
 			_, err = utils.Run(cmd)
 			Expect(err).NotTo(HaveOccurred(), "Failed to create test namespace")

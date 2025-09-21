@@ -324,5 +324,5 @@ func IsDragonflyInstalled() bool {
 	}
 
 	daemonSets := GetNonEmptyLines(output)
-	return !(len(daemonSets) == 0)
+	return len(daemonSets) != 0
 }
