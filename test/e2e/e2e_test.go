@@ -305,31 +305,8 @@ var _ = Describe("Manager", Ordered, func() {
 			testNamespace := testNamespaceInjection
 
 			DeferCleanup(func() {
-				By("collecting logs")
-				cmd := exec.Command("kubectl", "logs", "test-pod", "-n", testNamespace)
-				logs, err := utils.Run(cmd)
-
-				if err == nil {
-					_, _ = fmt.Fprintf(GinkgoWriter, "test-pod logs: %s", logs)
-				} else {
-					_, _ = fmt.Fprintf(GinkgoWriter, "Failed to get test-pod logs: %v", err)
-				}
-				cmd = exec.Command("kubectl", "describe", "test-pod", "-n", testNamespace)
-				describeOutput, err := utils.Run(cmd)
-				if err == nil {
-					_, _ = fmt.Fprintf(GinkgoWriter, "test-pod describe: %s", describeOutput)
-				} else {
-					_, _ = fmt.Fprintf(GinkgoWriter, "Failed to describe test pod: %v", err)
-				}
-
-				By("cleaning up test resources")
-				cmd = exec.Command("kubectl", "delete", "pod", "test-pod", "-n", testNamespace)
-				_, err = utils.Run(cmd)
-				Expect(err).NotTo(HaveOccurred(), "Failed to delete test pod")
-
-				cmd = exec.Command("kubectl", "delete", "ns", testNamespace)
-				_, err = utils.Run(cmd)
-				Expect(err).NotTo(HaveOccurred(), "Failed to delete test namespace")
+				By("final clean up...")
+				finalCleanUp(testNamespace)
 			})
 
 			cmd := exec.Command("kubectl", "create", "ns", testNamespace)
@@ -390,31 +367,8 @@ var _ = Describe("Manager", Ordered, func() {
 			By("creating a test pod with injection annotation")
 			testNamespace := testNamespaceInjection
 			DeferCleanup(func() {
-				By("collecting logs")
-				cmd := exec.Command("kubectl", "logs", "test-pod", "-n", testNamespace)
-				logs, err := utils.Run(cmd)
-
-				if err == nil {
-					_, _ = fmt.Fprintf(GinkgoWriter, "test-pod logs: %s", logs)
-				} else {
-					_, _ = fmt.Fprintf(GinkgoWriter, "Failed to get test-pod logs: %v", err)
-				}
-				cmd = exec.Command("kubectl", "describe", "test-pod", "-n", testNamespace)
-				describeOutput, err := utils.Run(cmd)
-				if err == nil {
-					_, _ = fmt.Fprintf(GinkgoWriter, "test-pod describe: %s", describeOutput)
-				} else {
-					_, _ = fmt.Fprintf(GinkgoWriter, "Failed to describe test pod: %v", err)
-				}
-
-				By("cleaning up test resources")
-				cmd = exec.Command("kubectl", "delete", "pod", "test-pod", "-n", testNamespace)
-				_, err = utils.Run(cmd)
-				Expect(err).NotTo(HaveOccurred(), "Failed to delete test pod")
-
-				cmd = exec.Command("kubectl", "delete", "ns", testNamespace)
-				_, err = utils.Run(cmd)
-				Expect(err).NotTo(HaveOccurred(), "Failed to delete test namespace")
+				By("final clean up...")
+				finalCleanUp(testNamespace)
 			})
 			cmd := exec.Command("kubectl", "create", "ns", testNamespace)
 			_, err := utils.Run(cmd)
@@ -471,6 +425,35 @@ var _ = Describe("Manager", Ordered, func() {
 
 	})
 })
+
+func finalCleanUp(ns string) {
+	By("collecting logs")
+	cmd := exec.Command("kubectl", "logs", "test-pod", "-n", ns)
+	logs, err := utils.Run(cmd)
+
+	if err == nil {
+		_, _ = fmt.Fprintf(GinkgoWriter, "test-pod logs: %s", logs)
+	} else {
+		_, _ = fmt.Fprintf(GinkgoWriter, "Failed to get test-pod logs: %v", err)
+	}
+	cmd = exec.Command("kubectl", "describe", "test-pod", "-n", ns)
+	describeOutput, err := utils.Run(cmd)
+	if err == nil {
+		_, _ = fmt.Fprintf(GinkgoWriter, "test-pod describe: %s", describeOutput)
+	} else {
+		_, _ = fmt.Fprintf(GinkgoWriter, "Failed to describe test pod: %v", err)
+	}
+
+	By("cleaning up test resources")
+	cmd = exec.Command("kubectl", "delete", "pod", "test-pod", "-n", ns)
+	_, err = utils.Run(cmd)
+	Expect(err).NotTo(HaveOccurred(), "Failed to delete test pod")
+
+	cmd = exec.Command("kubectl", "delete", "ns", ns)
+	_, err = utils.Run(cmd)
+	Expect(err).NotTo(HaveOccurred(), "Failed to delete test namespace")
+
+}
 
 // serviceAccountToken returns a token for the specified service account in the given namespace.
 // It uses the Kubernetes TokenRequest API to generate a token by directly sending a request
