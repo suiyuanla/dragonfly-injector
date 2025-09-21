@@ -252,3 +252,77 @@ func UncommentCode(filename, target, prefix string) error {
 
 	return nil
 }
+
+// InstallDragonfly installs Dragonfly cluster using Helm charts with the provided configuration
+// TODO: use url config to install dragonfly
+func InstallDragonfly(configFile string) error {
+	// Add Dragonfly Helm repository
+	cmd := exec.Command("helm", "repo", "add", "dragonfly", "https://dragonflyoss.github.io/helm-charts/")
+	if _, err := Run(cmd); err != nil {
+		return fmt.Errorf("failed to add dragonfly helm repository: %w", err)
+	}
+
+	// Update Helm repositories
+	cmd = exec.Command("helm", "repo", "update")
+	if _, err := Run(cmd); err != nil {
+		return fmt.Errorf("failed to update helm repositories: %w", err)
+	}
+
+	// Install Dragonfly with configuration
+	cmd = exec.Command("helm", "install", "--wait", "--create-namespace",
+		"--namespace", "dragonfly-system", "dragonfly", "dragonfly/dragonfly", "-f", configFile)
+	_, err := Run(cmd)
+	return err
+}
+
+// UninstallDragonfly uninstalls the Dragonfly cluster
+func UninstallDragonfly() {
+	cmd := exec.Command("helm", "uninstall", "dragonfly", "--namespace", "dragonfly-system")
+	if _, err := Run(cmd); err != nil {
+		warnError(err)
+	}
+
+	// Clean up namespace
+	cmd = exec.Command("kubectl", "delete", "namespace", "dragonfly-system")
+	if _, err := Run(cmd); err != nil {
+		warnError(err)
+	}
+}
+
+// IsDragonflyInstalled checks if Dragonfly components are installed by verifying
+// StatefulSets, Deployments, and DaemonSets in dragonfly-system namespace
+func IsDragonflyInstalled() bool {
+	// Check StatefulSets
+	cmd := exec.Command("kubectl", "-n", "dragonfly-system", "get", "statefulsets", "-o", "name")
+	output, err := Run(cmd)
+	if err != nil {
+		return false
+	}
+
+	statefulSets := GetNonEmptyLines(output)
+	if len(statefulSets) == 0 {
+		return false
+	}
+
+	// Check Deployments
+	cmd = exec.Command("kubectl", "-n", "dragonfly-system", "get", "deployments", "-o", "name")
+	output, err = Run(cmd)
+	if err != nil {
+		return false
+	}
+
+	deployments := GetNonEmptyLines(output)
+	if len(deployments) == 0 {
+		return false
+	}
+
+	// Check DaemonSets
+	cmd = exec.Command("kubectl", "-n", "dragonfly-system", "get", "daemonsets", "-o", "name")
+	output, err = Run(cmd)
+	if err != nil {
+		return false
+	}
+
+	daemonSets := GetNonEmptyLines(output)
+	return !(len(daemonSets) == 0)
+}

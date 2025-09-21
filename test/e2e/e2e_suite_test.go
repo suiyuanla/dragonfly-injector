@@ -36,10 +36,10 @@ var (
 	skipCertManagerInstall = os.Getenv("CERT_MANAGER_INSTALL_SKIP") == "true"
 	// isCertManagerAlreadyInstalled will be set true when CertManager CRDs be found on the cluster
 	isCertManagerAlreadyInstalled = false
-
+	isDragonflyAlreadyInstalled   = false
 	// projectImage is the name of the image which will be build and loaded
 	// with the code source changes to be tested.
-	projectImage = "d7y.io/dragonfly-injector:v0.0.1"
+	projectImage = "d7y.io/dragonfly-injector:v1.0.0"
 )
 
 // TestE2E runs the end-to-end (e2e) test suite for the project. These tests execute in an isolated,
@@ -78,6 +78,15 @@ var _ = BeforeSuite(func() {
 			_, _ = fmt.Fprintf(GinkgoWriter, "WARNING: CertManager is already installed. Skipping installation...\n")
 		}
 	}
+
+	By("checking if dragonfly is installed already")
+	isDragonflyAlreadyInstalled = utils.IsDragonflyInstalled()
+	if !isDragonflyAlreadyInstalled {
+		_, _ = fmt.Fprintf(GinkgoWriter, "Installing Dragonfly...\n")
+		Expect(utils.InstallDragonfly("test/e2e/config/dragonfly.yaml")).To(Succeed(), "Failed to install dragonfly")
+	} else {
+		_, _ = fmt.Fprintf(GinkgoWriter, "WARNING: Dragonfly is already installed. Skipping installation...\n")
+	}
 })
 
 var _ = AfterSuite(func() {
@@ -86,4 +95,10 @@ var _ = AfterSuite(func() {
 		_, _ = fmt.Fprintf(GinkgoWriter, "Uninstalling CertManager...\n")
 		utils.UninstallCertManager()
 	}
+
+	if !isDragonflyAlreadyInstalled {
+		_, _ = fmt.Fprintf(GinkgoWriter, "Uninstalling Dragonfly...\n")
+		utils.UninstallDragonfly()
+	}
+
 })
