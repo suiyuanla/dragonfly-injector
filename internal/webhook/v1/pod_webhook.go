@@ -93,6 +93,10 @@ func (d *PodCustomDefaulter) Default(ctx context.Context, obj runtime.Object) er
 
 func (d *PodCustomDefaulter) applyDefaults(ctx context.Context, pod *corev1.Pod) {
 	config := d.configManager.GetConfig()
+	if config == nil || !config.Enable {
+		podlog.Info("Config disabled, skip inject", "name", pod.GetName())
+		return
+	}
 	// check if need inject
 	if !d.injectRequired(ctx, pod) {
 		podlog.Info("Pod not inject", "name", pod.GetName())
@@ -106,7 +110,10 @@ func (d *PodCustomDefaulter) applyDefaults(ctx context.Context, pod *corev1.Pod)
 
 func (d *PodCustomDefaulter) injectRequired(ctx context.Context, pod *corev1.Pod) bool {
 	podlog.Info("func injectRequired start")
-	return d.isNamespaceInjectionEnabled(ctx, pod) || d.isPodInjectionEnabled(ctx, pod)
+	if d.isPodInjectionEnabled(ctx, pod) {
+		return true
+	}
+	return d.isNamespaceInjectionEnabled(ctx, pod)
 }
 
 func (d *PodCustomDefaulter) isNamespaceInjectionEnabled(ctx context.Context, pod *corev1.Pod) bool {
