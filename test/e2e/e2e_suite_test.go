@@ -41,7 +41,7 @@ var (
 	// with the code source changes to be tested.
 	// TODO: update the image version
 	projectImage        = "d7y.io/dragonfly-injector:v1.0.0"
-	dragonflyToolsImage = "dragonflyoss/toolkits:v0.0.1"
+	dragonflyToolsImage = "dragonflyoss/toolkits:latest"
 )
 
 // TestE2E runs the end-to-end (e2e) test suite for the project. These tests execute in an isolated,
