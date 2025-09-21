@@ -39,6 +39,9 @@ const (
 	CliToolsVolumeName        string = CliToolsInitContainerName + "-volume"
 	CliToolsDirPath           string = "/dragonfly-tools"     // Cli tools binary directory path
 	CliToolsPathEnvName       string = "DRAGONFLY_TOOLS_PATH" // Path to the directory where binaries are injected into the container.
+
+	// wait time for config reload
+	ConfigReloadWaitTime time.Duration = 15 * time.Second
 )
 
 type InjectConf struct {
@@ -84,7 +87,7 @@ func (cm *ConfigManager) GetConfig() *InjectConf {
 func (cm *ConfigManager) Start(ctx context.Context) error {
 	podlog.Info("Starting config file watcher.")
 
-	ticker := time.NewTicker(15 * time.Second)
+	ticker := time.NewTicker(ConfigReloadWaitTime)
 	defer ticker.Stop()
 	for {
 		select {
