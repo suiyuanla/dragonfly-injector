@@ -45,9 +45,6 @@ const metricsServiceName = "dragonfly-injector-controller-manager-metrics-servic
 // metricsRoleBindingName is the name of the RBAC that will be created to allow get the metrics data
 const metricsRoleBindingName = "dragonfly-injector-metrics-binding"
 
-// webhook config-map name
-const webhookConfigMapName = "dragonfly-injector-inject-config"
-
 const testNamespaceInjection = "test-namespace-injection"
 
 var _ = Describe("Manager", Ordered, func() {
