@@ -434,7 +434,7 @@ func finalCleanUp(podName, ns string) {
 	} else {
 		_, _ = fmt.Fprintf(GinkgoWriter, "Failed to get %s logs: %v", podName, err)
 	}
-	cmd = exec.Command("kubectl", "describe", podName, "-n", ns)
+	cmd = exec.Command("kubectl", "describe", "pod", podName, "-n", ns)
 	describeOutput, err := utils.Run(cmd)
 	if err == nil {
 		_, _ = fmt.Fprintf(GinkgoWriter, "%s describe: %s", podName, describeOutput)
