@@ -342,12 +342,12 @@ var _ = Describe("Manager", Ordered, func() {
 					},
 				},
 			}
-			podYamlBytes, err := yaml.Marshal(pod)
-			Expect(err).NotTo(HaveOccurred(), "Failed to marshal pod to yaml")
+			podJsonBytes, err := json.Marshal(pod)
+			Expect(err).NotTo(HaveOccurred(), "Failed to marshal pod to json")
 			tempDir := GinkgoT().TempDir()
-			podFile := filepath.Join(tempDir, "test-pod.yaml")
-			err = os.WriteFile(podFile, podYamlBytes, 0644)
-			Expect(err).NotTo(HaveOccurred(), "Failed to write pod yaml to file")
+			podFile := filepath.Join(tempDir, "test-pod.json")
+			err = os.WriteFile(podFile, podJsonBytes, 0644)
+			Expect(err).NotTo(HaveOccurred(), "Failed to write pod json to file")
 
 			cmd = exec.Command("kubectl", "apply", "-f", podFile)
 			_, err = utils.Run(cmd)
@@ -401,12 +401,12 @@ var _ = Describe("Manager", Ordered, func() {
 					},
 				},
 			}
-			podYamlBytes, err := yaml.Marshal(pod)
-			Expect(err).NotTo(HaveOccurred(), "Failed to marshal pod to yaml")
+			podJsonBytes, err := json.Marshal(pod)
+			Expect(err).NotTo(HaveOccurred(), "Failed to marshal pod to json")
 			tempDir := GinkgoT().TempDir()
-			podFile := filepath.Join(tempDir, "test-pod.yaml")
-			err = os.WriteFile(podFile, podYamlBytes, 0644)
-			Expect(err).NotTo(HaveOccurred(), "Failed to write pod yaml to file")
+			podFile := filepath.Join(tempDir, "test-pod.json")
+			err = os.WriteFile(podFile, podJsonBytes, 0644)
+			Expect(err).NotTo(HaveOccurred(), "Failed to write pod json to file")
 
 			cmd = exec.Command("kubectl", "apply", "-f", podFile)
 			_, err = utils.Run(cmd)
@@ -454,11 +454,11 @@ var _ = Describe("Manager", Ordered, func() {
 			}
 
 			By("update configmap")
-			cmYaml, err := yaml.Marshal(cm)
+			cmJson, err := json.Marshal(cm)
 			Expect(err).NotTo(HaveOccurred(), "Failed to marshal configmap")
-			cmFile := filepath.Join(GinkgoT().TempDir(), "configmap.yaml")
-			err = os.WriteFile(cmFile, cmYaml, 0644)
-			Expect(err).NotTo(HaveOccurred(), "Failed to write configmap yaml to file")
+			cmFile := filepath.Join(GinkgoT().TempDir(), "configmap.json")
+			err = os.WriteFile(cmFile, cmJson, 0644)
+			Expect(err).NotTo(HaveOccurred(), "Failed to write configmap json to file")
 			cmd = exec.Command("kubectl", "apply", "-f", cmFile, "-n", namespace)
 			_, err = utils.Run(cmd)
 			Expect(err).NotTo(HaveOccurred(), "Failed to update configmap")
@@ -497,12 +497,12 @@ var _ = Describe("Manager", Ordered, func() {
 					},
 				},
 			}
-			podYamlBytes, err := yaml.Marshal(pod)
-			Expect(err).NotTo(HaveOccurred(), "Failed to marshal pod to yaml")
+			podJsonBytes, err := json.Marshal(pod)
+			Expect(err).NotTo(HaveOccurred(), "Failed to marshal pod to json")
 			tempDir := GinkgoT().TempDir()
-			podFile := filepath.Join(tempDir, "test-pod.yaml")
-			err = os.WriteFile(podFile, podYamlBytes, 0644)
-			Expect(err).NotTo(HaveOccurred(), "Failed to write pod yaml to file")
+			podFile := filepath.Join(tempDir, "test-pod.json")
+			err = os.WriteFile(podFile, podJsonBytes, 0644)
+			Expect(err).NotTo(HaveOccurred(), "Failed to write pod json to file")
 
 			cmd = exec.Command("kubectl", "apply", "-f", podFile)
 			_, err = utils.Run(cmd)
@@ -516,10 +516,10 @@ var _ = Describe("Manager", Ordered, func() {
 
 			By("resetting configmap")
 			cm.Data["config.yaml"] = configYaml
-			cmYaml, err = yaml.Marshal(cm)
+			cmJson, err = json.Marshal(cm)
 			Expect(err).NotTo(HaveOccurred(), "Failed to marshal configmap")
-			err = os.WriteFile(cmFile, cmYaml, 0644)
-			Expect(err).NotTo(HaveOccurred(), "Failed to write configmap yaml to file")
+			err = os.WriteFile(cmFile, cmJson, 0644)
+			Expect(err).NotTo(HaveOccurred(), "Failed to write configmap json to file")
 			cmd = exec.Command("kubectl", "apply", "-f", cmFile, "-n", namespace)
 			_, err = utils.Run(cmd)
 			Expect(err).NotTo(HaveOccurred(), "Failed to update configmap")
