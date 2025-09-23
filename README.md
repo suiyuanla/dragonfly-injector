@@ -5,7 +5,7 @@ A Kubernetes Mutating Admission Webhook for automatic P2P capability injection i
 ## Description
 
 1. **Annotation(label)-based Injection Scope**:
-   The webhook supports injecting P2P configurations based on annotations(labels) at both the namespace and pod levels. By adding a specific label to a namespace, all pods within that namespace will have the P2P capabilities automatically injected. Additionally, pods can be annotated to enable or customize the injection. The priority of annotations is as follows: `pod-level annotations` > `namespace-level labels` > `webhook default config`.
+   The webhook supports injecting P2P configurations based on annotations(labels) at both the namespace and pod levels. By adding a specific label to a namespace, all pods within that namespace will have the P2P capabilities automatically injected. Additionally, pods can be annotated to enable or customize the injection. The priority of annotations is as follows: `pod-level annotations` > `namespace-level labels`.
 
    - Namespace injection:
 
@@ -177,12 +177,6 @@ make docker-build docker-push IMG=<some-registry>/dragonfly-injector:tag
 And it is required to have access to pull the image from the working environment.
 Make sure you have the proper permission to the registry if the above commands don’t work.
 
-**Install the CRDs into the cluster:**
-
-```sh
-make install
-```
-
 **Deploy the Manager to the cluster with the image specified by `IMG`:**
 
 ```sh
@@ -192,28 +186,12 @@ make deploy IMG=<some-registry>/dragonfly-injector:tag
 > **NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin
 > privileges or be logged in as admin.
 
-**Create instances of your solution**
-You can apply the samples (examples) from the config/sample:
-
-```sh
-kubectl apply -k config/samples/
+**Configure Webhook**
+You can modify the webhook configuration by editing the configuration file at `config/webhook/config-map.yaml`.
 ```
 
-> **NOTE**: Ensure that the samples has default values to test it out.
 
 ### To Uninstall
-
-**Delete the instances (CRs) from the cluster:**
-
-```sh
-kubectl delete -k config/samples/
-```
-
-**Delete the APIs(CRDs) from the cluster:**
-
-```sh
-make uninstall
-```
 
 **UnDeploy the controller from the cluster:**
 
@@ -244,7 +222,7 @@ Users can just run 'kubectl apply -f <URL for YAML BUNDLE>' to install
 the project, i.e.:
 
 ```sh
-kubectl apply -f https://raw.githubusercontent.com/<org>/dragonfly-injector/<tag or branch>/dist/install.yaml
+kubectl apply -f https://raw.githubusercontent.com/dragonflyoss/dragonfly-injector/main/dist/install.yaml
 ```
 
 ### By providing a Helm Chart
